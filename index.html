@@ -11,6 +11,11 @@
 </head>
 <body>
   <canvas class="page-bg-canvas" aria-hidden="true"></canvas>
+  <button class="scroll-next" type="button" aria-label="Ir para a próxima seção">
+    <span class="scroll-next__circle">
+      <span class="scroll-next__arrow" aria-hidden="true"></span>
+    </span>
+  </button>
 
   <main>
     <section class="panel hero">
@@ -42,7 +47,7 @@
 
     <section class="panel section-morning morning-a">
       <div class="sticky-frame">
-        <div class="shell phase-shell">
+        <div class="shell phase-shell layout-left">
           <div class="copy phase-copy">
             <span class="eyebrow js-morning-a-index">Morning Phase</span>
             <h2 class="js-morning-a-title">Morning<br>Block One</h2>
@@ -50,7 +55,12 @@
           </div>
 
           <div class="pair-grid">
-            <article class="theme-card js-morning-a-card-1">
+            <article class="theme-card has-media is-tall js-morning-a-card-1">
+              <div class="card-media collage collage-sunrise" aria-hidden="true">
+                <span class="media-tile"></span>
+                <span class="media-tile"></span>
+                <span class="media-tile"></span>
+              </div>
               <span>Theme 01</span>
               <h2>Lorem ipsum dolor</h2>
               <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
@@ -67,7 +77,7 @@
 
     <section class="panel section-morning morning-b">
       <div class="sticky-frame">
-        <div class="shell phase-shell">
+        <div class="shell phase-shell layout-right">
           <div class="copy phase-copy">
             <span class="eyebrow js-morning-b-index">Morning Phase</span>
             <h2 class="js-morning-b-title">Morning<br>Block Two</h2>
@@ -80,7 +90,11 @@
               <h2>Tempor incididunt</h2>
               <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
             </article>
-            <article class="theme-card js-morning-b-card-2">
+            <article class="theme-card has-media is-offset js-morning-b-card-2">
+              <div class="card-media collage collage-streets" aria-hidden="true">
+                <span class="media-tile"></span>
+                <span class="media-tile"></span>
+              </div>
               <span>Theme 04</span>
               <h2>Ut labore magna</h2>
               <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
@@ -90,9 +104,30 @@
       </div>
     </section>
 
+    <section class="panel section-morning morning-c">
+      <div class="sticky-frame">
+        <div class="shell phase-shell phase-feature layout-center-wide">
+          <div class="copy phase-copy">
+            <span class="eyebrow js-morning-c-index">Morning Phase</span>
+            <h2 class="js-morning-c-title">Morning<br>Block Three</h2>
+            <p class="js-morning-c-text">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+          </div>
+
+          <article class="theme-card has-media feature-card js-morning-c-card-1">
+            <div class="card-media panorama panorama-feature" aria-hidden="true">
+              <span class="media-tile"></span>
+            </div>
+            <span>Theme 05</span>
+            <h2>Lorem ipsum dolor sit amet</h2>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <section class="panel section-afternoon afternoon-a">
       <div class="sticky-frame">
-        <div class="shell phase-shell">
+        <div class="shell phase-shell layout-center">
           <div class="copy phase-copy">
             <span class="eyebrow js-afternoon-a-index">Afternoon Phase</span>
             <h2 class="js-afternoon-a-title">Afternoon<br>Block One</h2>
@@ -100,7 +135,10 @@
           </div>
 
           <div class="pair-grid">
-            <article class="theme-card js-afternoon-a-card-1">
+            <article class="theme-card has-media is-wide js-afternoon-a-card-1">
+              <div class="card-media panorama panorama-city" aria-hidden="true">
+                <span class="media-tile"></span>
+              </div>
               <span>Theme 01</span>
               <h2>Lorem ipsum dolor</h2>
               <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
@@ -117,7 +155,7 @@
 
     <section class="panel section-afternoon afternoon-b">
       <div class="sticky-frame">
-        <div class="shell phase-shell">
+        <div class="shell phase-shell layout-left">
           <div class="copy phase-copy">
             <span class="eyebrow js-afternoon-b-index">Afternoon Phase</span>
             <h2 class="js-afternoon-b-title">Afternoon<br>Block Two</h2>
@@ -130,7 +168,12 @@
               <h2>Velit esse cillum</h2>
               <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
             </article>
-            <article class="theme-card js-afternoon-b-card-2">
+            <article class="theme-card has-media js-afternoon-b-card-2">
+              <div class="card-media collage collage-neon" aria-hidden="true">
+                <span class="media-tile"></span>
+                <span class="media-tile"></span>
+                <span class="media-tile"></span>
+              </div>
               <span>Theme 04</span>
               <h2>Dolore eu fugiat</h2>
               <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
@@ -142,7 +185,7 @@
 
     <section class="panel section-night night-a">
       <div class="sticky-frame">
-        <div class="shell phase-shell">
+        <div class="shell phase-shell layout-right">
           <div class="copy phase-copy">
             <span class="eyebrow js-night-a-index">Night Phase</span>
             <h2 class="js-night-a-title">Night<br>Block One</h2>
@@ -150,7 +193,12 @@
           </div>
 
           <div class="pair-grid">
-            <article class="theme-card night-card js-night-a-card-1">
+            <article class="theme-card night-card has-media is-tall js-night-a-card-1">
+              <div class="card-media collage collage-night" aria-hidden="true">
+                <span class="media-tile"></span>
+                <span class="media-tile"></span>
+                <span class="media-tile"></span>
+              </div>
               <span>Theme 01</span>
               <h2>Lorem ipsum dolor</h2>
               <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
@@ -167,7 +215,7 @@
 
     <section class="panel section-night night-b">
       <div class="sticky-frame">
-        <div class="shell phase-shell">
+        <div class="shell phase-shell layout-center">
           <div class="copy phase-copy">
             <span class="eyebrow js-night-b-index">Night Phase</span>
             <h2 class="js-night-b-title">Night<br>Block Two</h2>
@@ -199,7 +247,10 @@
             <p class="js-midnight-text">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
           </div>
 
-          <article class="theme-card midnight-card js-midnight-card">
+          <article class="theme-card midnight-card has-media js-midnight-card">
+            <div class="card-media panorama panorama-midnight" aria-hidden="true">
+              <span class="media-tile"></span>
+            </div>
             <span>Theme 01</span>
             <h2>Lorem ipsum dolor sit amet</h2>
             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.</p>
