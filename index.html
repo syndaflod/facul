@@ -11,11 +11,10 @@
 </head>
 <body>
   <canvas class="page-bg-canvas" aria-hidden="true"></canvas>
-  <button class="scroll-next" type="button" aria-label="Ir para a próxima seção">
-    <span class="scroll-next__circle">
-      <span class="scroll-next__arrow" aria-hidden="true"></span>
-    </span>
-  </button>
+  <nav class="section-map" aria-label="Mapa das seções">
+    <div class="section-map__line" aria-hidden="true"></div>
+    <div class="section-map__items"></div>
+  </nav>
 
   <main>
     <section class="panel hero">
@@ -23,7 +22,7 @@
         <div class="shell hero-grid">
           <div class="copy">
             <span class="eyebrow js-hero-eyebrow">Tokyo / Japan</span>
-            <h1 class="js-hero-title">TOKYO<br>AWAKENS</h1>
+            <h1 class="js-hero-title">PROJETO<br>TOK<span class="hero-title__accent">Y</span>O</h1>
             <p class="js-hero-text">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
           </div>
 
@@ -262,6 +261,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+  <script src="./hero-animation-config.js"></script>
+  <script src="./section-map.js"></script>
   <script src="./script.js"></script>
 </body>
 </html>

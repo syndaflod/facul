@@ -101,12 +101,9 @@ const initHero = () => {
     }
   });
 
-  tl.fromTo(".js-hero-eyebrow", { y: 0, opacity: 1 }, { y: -22, opacity: 0.3 }, 0)
-    .fromTo(".js-hero-title", { y: 0, scale: 1, opacity: 1 }, { y: -54, scale: 0.945, opacity: 0.58 }, 0)
-    .fromTo(".js-hero-text", { y: 0, opacity: 1 }, { y: -26, opacity: 0.45 }, 0)
-    .fromTo(".js-hero-card-a", { y: 44, opacity: 0.12, scale: 0.96 }, { y: -18, opacity: 1, scale: 1.01 }, 0.1)
-    .fromTo(".js-hero-card-b", { y: 58, opacity: 0, scale: 0.94 }, { y: -10, opacity: 0.92, scale: 1.02 }, 0.18)
-    .fromTo(".js-hero-glow", { scale: 1, xPercent: 0, yPercent: 0 }, { scale: 1.26, xPercent: -10, yPercent: 8 }, 0);
+  window.getHeroAnimationConfig().forEach(({ selector, from, to, position }) => {
+    tl.fromTo(selector, from, to, position);
+  });
 };
 
 const initPairSection = (sectionClass, prefix) => {
@@ -142,140 +139,78 @@ const initMidnight = () => {
     .fromTo(".js-midnight-card", { y: 80, opacity: 0, scale: 0.92 }, { y: 0, opacity: 1, scale: 1.015 }, 0.24);
 };
 
-const initScrollReveal = () => {
-  const revealTargets = gsap.utils.toArray([
-    ".copy > *",
-    ".glass-card",
-    ".theme-card"
-  ]);
+const initSectionMap = () => {
+  const map = document.querySelector(".section-map");
+  const itemsContainer = document.querySelector(".section-map__items");
+  const config = window.getSectionMapConfig?.() || [];
 
-  revealTargets.forEach((element) => element.classList.add("is-reveal"));
+  if (!map || !itemsContainer || config.length === 0) return;
 
-  ScrollTrigger.batch(revealTargets, {
-    start: "top 84%",
-    once: true,
-    onEnter: (batch) => {
-      gsap.to(batch, {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.9,
-        stagger: 0.1,
-        ease: "power3.out",
-        onStart: () => batch.forEach((element) => element.classList.add("is-visible"))
-      });
-    }
-  });
-};
+  const sections = config
+    .map((item) => ({ ...item, element: document.querySelector(item.selector) }))
+    .filter((item) => item.element);
 
-const revealPanelImmediately = (panel) => {
-  if (!panel) return;
+  if (sections.length === 0) return;
 
-  const targets = panel.querySelectorAll(".copy > *, .glass-card, .theme-card");
-  if (!targets.length) return;
+  const buttons = sections.map((section, index) => {
+    const button = document.createElement("button");
+    const label = document.createElement("span");
 
-  const hiddenTargets = Array.from(targets).filter((element) => element.classList.contains("is-reveal"));
-  if (!hiddenTargets.length) return;
+    button.type = "button";
+    button.className = "section-map__item";
+    button.dataset.index = String(index);
+    button.setAttribute("aria-label", `Ir para ${section.label}`);
+    button.style.setProperty("--node-size", `${section.size || 26}px`);
 
-  gsap.killTweensOf(hiddenTargets);
-  gsap.to(hiddenTargets, {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    duration: 0.75,
-    stagger: 0.08,
-    ease: "power3.out",
-    onStart: () => hiddenTargets.forEach((element) => element.classList.add("is-visible"))
-  });
-};
+    label.className = "section-map__label";
+    label.textContent = section.label;
+    button.appendChild(label);
 
-const initParallax = () => {
-  gsap.utils.toArray(".theme-card").forEach((card) => {
-    gsap.to(card, {
-      yPercent: -6,
-      ease: "none",
-      scrollTrigger: {
-        trigger: card,
-        start: "top bottom",
-        end: "bottom top",
-        scrub: 0.8
-      }
-    });
-  });
-};
+    const getScrollTarget = () => {
+      const inset = Math.min(window.innerHeight * 0.08, 72);
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      return Math.min(Math.max(section.element.offsetTop - inset, 0), maxScroll);
+    };
 
-const initCardHover = () => {
-  const cards = document.querySelectorAll(".glass-card, .theme-card");
-
-  cards.forEach((card) => {
-    card.addEventListener("pointermove", (event) => {
-      if (prefersReducedMotion || window.innerWidth < 920) return;
-
-      const bounds = card.getBoundingClientRect();
-      const offsetX = ((event.clientX - bounds.left) / bounds.width - 0.5) * 10;
-      const offsetY = ((event.clientY - bounds.top) / bounds.height - 0.5) * 10;
-
-      gsap.to(card, {
-        rotateX: clamp(-offsetY, -4, 4),
-        rotateY: clamp(offsetX, -5, 5),
-        transformPerspective: 900,
-        duration: 0.35,
-        ease: "power2.out"
-      });
+    button.addEventListener("click", () => {
+      window.scrollTo({ top: Math.max(getScrollTarget(), 0), behavior: "smooth" });
     });
 
-    card.addEventListener("pointerleave", () => {
-      gsap.to(card, {
-        rotateX: 0,
-        rotateY: 0,
-        duration: 0.45,
-        ease: "power3.out"
-      });
-    });
+    itemsContainer.appendChild(button);
+    return button;
   });
-};
 
-const initScrollNext = () => {
-  const button = document.querySelector(".scroll-next");
-  const panels = Array.from(document.querySelectorAll(".panel"));
+  const applyState = (activeIndex) => {
+    const states = window.getSectionMapState(activeIndex, buttons.length);
 
-  if (!button || panels.length === 0) return;
-
-  const getNextPanel = () => {
-    const threshold = window.scrollY + window.innerHeight * 0.35;
-    return panels.find((panel) => panel.offsetTop > threshold) || null;
+    buttons.forEach((button, index) => {
+      button.classList.toggle("is-past", states[index] === "past");
+      button.classList.toggle("is-current", states[index] === "current");
+      button.classList.toggle("is-upcoming", states[index] === "upcoming");
+      button.setAttribute("aria-current", states[index] === "current" ? "true" : "false");
+    });
   };
 
-  const getScrollTarget = (panel) => {
-    if (!panel) return document.documentElement.scrollHeight;
+  const getActiveIndex = () => {
+    const focusLine = window.innerHeight * 0.5;
+    const current = sections.findIndex(({ element }) => {
+      const rect = element.getBoundingClientRect();
+      return rect.top <= focusLine && rect.bottom >= focusLine;
+    });
 
-    // Land slightly inside the next panel so sticky content and scroll-based reveals
-    // have enough progress to render the new section immediately.
-    const offset = Math.min(window.innerHeight * 0.18, 140);
-    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-    return Math.min(panel.offsetTop + offset, maxScroll);
-  };
-
-  const updateVisibility = () => {
-    const scrollBottom = window.scrollY + window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
-    button.classList.toggle("is-hidden", scrollBottom >= documentHeight - 24);
-  };
-
-  button.addEventListener("click", () => {
-    const nextPanel = getNextPanel();
-
-    if (!nextPanel) {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
-      return;
+    if (current >= 0) return current;
+    if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4) {
+      return sections.length - 1;
     }
 
-    revealPanelImmediately(nextPanel);
-    window.scrollTo({ top: getScrollTarget(nextPanel), behavior: "smooth" });
-  });
+    return 0;
+  };
 
-  window.addEventListener("scroll", updateVisibility, { passive: true });
-  updateVisibility();
+  const update = () => applyState(getActiveIndex());
+
+  window.addEventListener("scroll", update, { passive: true });
+  window.addEventListener("resize", update);
+  update();
 };
 
 const init = () => {
@@ -289,12 +224,7 @@ const init = () => {
   initPairSection(".night-a", "night-a");
   initPairSection(".night-b", "night-b");
   initMidnight();
-  if (!prefersReducedMotion) {
-    initScrollReveal();
-    initParallax();
-    initCardHover();
-  }
-  initScrollNext();
+  initSectionMap();
   ScrollTrigger.refresh();
 };
 
