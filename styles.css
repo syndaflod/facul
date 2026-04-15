@@ -25,6 +25,13 @@ body {
   min-width: 320px;
   overscroll-behavior: none;
   scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 body {

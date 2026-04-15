@@ -30,6 +30,23 @@ const atmosphereStops = [
   { stop: 1.0, top: [0, 0, 0], bottom: [0, 0, 0], glow: [54, 54, 54] }
 ];
 
+const resolveAtmosphere = (progress) => {
+  for (let index = 0; index < atmosphereStops.length - 1; index += 1) {
+    const start = atmosphereStops[index];
+    const end = atmosphereStops[index + 1];
+    if (progress >= start.stop && progress <= end.stop) {
+      const local = clamp((progress - start.stop) / (end.stop - start.stop));
+      return {
+        top: mix(start.top, end.top, local),
+        bottom: mix(start.bottom, end.bottom, local),
+        glow: mix(start.glow, end.glow, local)
+      };
+    }
+  }
+
+  return atmosphereStops[atmosphereStops.length - 1];
+};
+
 const initCanvasBackground = () => {
   const canvas = document.querySelector(".page-bg-canvas");
   if (!canvas) return;
@@ -45,23 +62,6 @@ const initCanvasBackground = () => {
     canvas.style.height = `${window.innerHeight}px`;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     draw(state.progress);
-  };
-
-  const resolveAtmosphere = (progress) => {
-    for (let index = 0; index < atmosphereStops.length - 1; index += 1) {
-      const start = atmosphereStops[index];
-      const end = atmosphereStops[index + 1];
-      if (progress >= start.stop && progress <= end.stop) {
-        const local = clamp((progress - start.stop) / (end.stop - start.stop));
-        return {
-          top: mix(start.top, end.top, local),
-          bottom: mix(start.bottom, end.bottom, local),
-          glow: mix(start.glow, end.glow, local)
-        };
-      }
-    }
-
-    return atmosphereStops[atmosphereStops.length - 1];
   };
 
   const draw = (progress) => {
@@ -105,6 +105,289 @@ const initCanvasBackground = () => {
       scrub: true
     },
     onUpdate: () => draw(state.progress)
+  });
+};
+
+const initThreeBackground = () => {
+  const canvas = document.querySelector(".page-bg-canvas");
+  const THREE = window.THREE;
+
+  if (!canvas || !THREE) {
+    initCanvasBackground();
+    return;
+  }
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    alpha: true,
+    powerPreference: "high-performance"
+  });
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x040713, 0.045);
+
+  const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 80);
+  camera.position.set(0, 0.15, 8.5);
+
+  const state = {
+    progress: 0,
+    pointerX: 0,
+    pointerY: 0
+  };
+
+  const corridor = new THREE.Group();
+  scene.add(corridor);
+
+  const createGradientTexture = () => {
+    const gradientCanvas = document.createElement("canvas");
+    gradientCanvas.width = 32;
+    gradientCanvas.height = 512;
+
+    const context = gradientCanvas.getContext("2d");
+    const gradient = context.createLinearGradient(0, 0, 0, gradientCanvas.height);
+    gradient.addColorStop(0, "#f3d5a9");
+    gradient.addColorStop(0.42, "#6d5cc4");
+    gradient.addColorStop(1, "#040713");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, gradientCanvas.width, gradientCanvas.height);
+
+    const texture = new THREE.CanvasTexture(gradientCanvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  };
+
+  const world = new THREE.Mesh(
+    new THREE.SphereGeometry(36, 40, 40),
+    new THREE.MeshBasicMaterial({
+      map: createGradientTexture(),
+      side: THREE.BackSide
+    })
+  );
+  scene.add(world);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+  scene.add(ambientLight);
+
+  const keyLight = new THREE.PointLight(0xffcc92, 11, 30, 2);
+  keyLight.position.set(3, 2, 6);
+  scene.add(keyLight);
+
+  const fillLight = new THREE.PointLight(0x6fa7ff, 7, 30, 2);
+  fillLight.position.set(-4, -2, 2);
+  scene.add(fillLight);
+
+  const glowMaterial = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color("#ffd8b5"),
+    emissive: new THREE.Color("#ffb36d"),
+    emissiveIntensity: 0.9,
+    roughness: 0.16,
+    metalness: 0.18,
+    clearcoat: 1,
+    clearcoatRoughness: 0.18,
+    transparent: true,
+    opacity: 0.94
+  });
+
+  const glassMaterial = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color("#d9e4ff"),
+    emissive: new THREE.Color("#4e6cff"),
+    emissiveIntensity: 0.22,
+    roughness: 0.08,
+    metalness: 0.04,
+    transmission: 0.18,
+    transparent: true,
+    opacity: 0.62
+  });
+
+  const matteMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color("#f7f0e8"),
+    roughness: 0.42,
+    metalness: 0.08
+  });
+
+  const createNode = (type, x, y, z, scale, colorOffset = 0) => {
+    let geometry;
+
+    if (type === "core") geometry = new THREE.IcosahedronGeometry(1.3, 5);
+    if (type === "ring") geometry = new THREE.TorusKnotGeometry(0.72, 0.2, 120, 16);
+    if (type === "orb") geometry = new THREE.SphereGeometry(0.9, 32, 32);
+    if (type === "tower") geometry = new THREE.OctahedronGeometry(1.05, 0);
+    if (type === "gate") geometry = new THREE.TorusGeometry(1.05, 0.16, 24, 96);
+
+    const material =
+      type === "core" || type === "orb"
+        ? glowMaterial.clone()
+        : type === "ring" || type === "gate"
+          ? glassMaterial.clone()
+          : matteMaterial.clone();
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.scale.setScalar(scale);
+    mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    mesh.userData = {
+      baseX: x,
+      baseY: y,
+      baseZ: z,
+      spinX: (Math.random() * 0.4 + 0.08) * (Math.random() > 0.5 ? 1 : -1),
+      spinY: (Math.random() * 0.55 + 0.12) * (Math.random() > 0.5 ? 1 : -1),
+      bob: Math.random() * Math.PI * 2,
+      drift: 0.12 + Math.random() * 0.2
+    };
+
+    if (material.color) {
+      material.color.offsetHSL(colorOffset, 0, 0);
+    }
+
+    corridor.add(mesh);
+    return mesh;
+  };
+
+  const nodes = [
+    createNode("core", 0, 0, 0, 1.35, 0),
+    createNode("ring", -2.7, 1.2, -5.5, 0.95, -0.01),
+    createNode("orb", 2.9, -1.4, -10.5, 0.9, 0.02),
+    createNode("tower", -3.6, -0.3, -15.5, 1.2, -0.03),
+    createNode("gate", 2.8, 1.45, -21, 1.28, 0.03),
+    createNode("orb", -1.2, -1.7, -26.5, 1.1, -0.02),
+    createNode("ring", 3.3, 0.5, -32, 1.35, 0.01),
+    createNode("core", -2.5, 1.3, -38, 1.05, 0),
+    createNode("gate", 0.6, -1.1, -44, 1.45, -0.02)
+  ];
+
+  const starCount = prefersReducedMotion ? 180 : 320;
+  const starPositions = new Float32Array(starCount * 3);
+
+  for (let index = 0; index < starCount; index += 1) {
+    const stride = index * 3;
+    starPositions[stride] = (Math.random() - 0.5) * 22;
+    starPositions[stride + 1] = (Math.random() - 0.5) * 13;
+    starPositions[stride + 2] = -Math.random() * 54 + 6;
+  }
+
+  const starsGeometry = new THREE.BufferGeometry();
+  starsGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+
+  const starsMaterial = new THREE.PointsMaterial({
+    color: new THREE.Color("#ffe7c8"),
+    size: 0.09,
+    transparent: true,
+    opacity: 0.72,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const stars = new THREE.Points(starsGeometry, starsMaterial);
+  scene.add(stars);
+
+  const resize = () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    camera.aspect = width / height;
+    camera.fov = width < 720 ? 56 : 48;
+    camera.updateProjectionMatrix();
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setSize(width, height, false);
+  };
+
+  const applyAtmosphere = (progress) => {
+    const atmosphere = resolveAtmosphere(progress);
+    const top = new THREE.Color(`rgb(${atmosphere.top[0]}, ${atmosphere.top[1]}, ${atmosphere.top[2]})`);
+    const bottom = new THREE.Color(`rgb(${atmosphere.bottom[0]}, ${atmosphere.bottom[1]}, ${atmosphere.bottom[2]})`);
+    const glow = new THREE.Color(`rgb(${atmosphere.glow[0]}, ${atmosphere.glow[1]}, ${atmosphere.glow[2]})`);
+
+    scene.fog.color.copy(bottom);
+    keyLight.color.copy(glow);
+    fillLight.color.copy(bottom.clone().lerp(top, 0.58));
+    glowMaterial.color.copy(top.clone().lerp(glow, 0.24));
+    glowMaterial.emissive.copy(glow);
+    glassMaterial.color.copy(top.clone().lerp(bottom, 0.16));
+    glassMaterial.emissive.copy(bottom.clone().lerp(glow, 0.52));
+    matteMaterial.color.copy(top.clone().lerp(bottom, 0.3));
+    starsMaterial.color.copy(top.clone().lerp(glow, 0.4));
+    starsMaterial.opacity = 0.22 + (1 - progress) * 0.5;
+    renderer.setClearColor(bottom, 1);
+  };
+
+  const getCameraPath = (progress) => ({
+    x: Math.sin(progress * Math.PI * 2.2) * 1.25,
+    y: lerp(0.65, -1.35, progress) + Math.sin(progress * Math.PI * 5) * 0.18,
+    z: lerp(8.5, -43, progress)
+  });
+
+  const getLookTarget = (progress) => ({
+    x: Math.sin(progress * Math.PI * 1.7) * 0.7,
+    y: Math.cos(progress * Math.PI * 3.4) * 0.25,
+    z: lerp(-2, -48, progress)
+  });
+
+  const pointerStrength = prefersReducedMotion ? 0.08 : 0.22;
+
+  const renderFrame = () => {
+    const time = performance.now() * 0.001;
+    const progress = state.progress;
+    const cameraPath = getCameraPath(progress);
+    const lookTarget = getLookTarget(progress);
+
+    camera.position.x = cameraPath.x + state.pointerX * pointerStrength;
+    camera.position.y = cameraPath.y - state.pointerY * pointerStrength * 0.7;
+    camera.position.z = cameraPath.z;
+    camera.lookAt(
+      lookTarget.x + state.pointerX * 0.2,
+      lookTarget.y - state.pointerY * 0.14,
+      lookTarget.z
+    );
+
+    corridor.rotation.z = Math.sin(progress * Math.PI * 2) * 0.05;
+    corridor.position.x = Math.sin(progress * Math.PI * 4) * 0.15;
+
+    nodes.forEach((node, index) => {
+      const drift = Math.sin(time * node.userData.drift + node.userData.bob);
+      node.rotation.x += 0.0025 * node.userData.spinX;
+      node.rotation.y += 0.0025 * node.userData.spinY;
+      node.position.x = node.userData.baseX + Math.sin(time * 0.45 + index) * 0.12;
+      node.position.y = node.userData.baseY + drift * 0.32;
+      node.position.z = node.userData.baseZ;
+    });
+
+    stars.rotation.y = time * 0.02 + progress * 0.18;
+    stars.position.z = progress * 6;
+
+    keyLight.position.z = camera.position.z + 4;
+    keyLight.position.x = camera.position.x + 2.6;
+    fillLight.position.z = camera.position.z - 2;
+
+    renderer.render(scene, camera);
+  };
+
+  const tick = () => {
+    renderFrame();
+    window.requestAnimationFrame(tick);
+  };
+
+  window.addEventListener("pointermove", (event) => {
+    state.pointerX = (event.clientX / window.innerWidth - 0.5) * 2;
+    state.pointerY = (event.clientY / window.innerHeight - 0.5) * 2;
+  }, { passive: true });
+
+  window.addEventListener("resize", resize);
+  resize();
+  applyAtmosphere(0);
+  tick();
+
+  gsap.to(state, {
+    progress: 1,
+    ease: "none",
+    scrollTrigger: {
+      trigger: document.body,
+      start: "top top",
+      end: "bottom bottom",
+      scrub: true
+    },
+    onUpdate: () => applyAtmosphere(state.progress)
   });
 };
 
@@ -546,7 +829,7 @@ const initShowcaseSlider = () => {
 };
 
 const init = () => {
-  initCanvasBackground();
+  initThreeBackground();
   initHero();
   initPairSection(".morning-a", "morning-a");
   initPairSection(".morning-b", "morning-b");
