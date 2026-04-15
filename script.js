@@ -451,10 +451,7 @@ const initShowcaseSlider = () => {
   if (!slider) return;
 
   const slides = Array.from(slider.querySelectorAll("[data-showcase-slide]"));
-  const dots = Array.from(slider.querySelectorAll("[data-showcase-dot]"));
-  const viewport = slider.querySelector(".showcase-slider__viewport");
-
-  if (slides.length === 0 || !viewport) return;
+  if (slides.length === 0) return;
 
   let activeIndex = 0;
   const lastIndex = slides.length - 1;
@@ -465,88 +462,87 @@ const initShowcaseSlider = () => {
     return Number.isFinite(parsed) ? parsed : fallback;
   };
 
-  const getSlots = () => {
-    const viewportWidth = viewport.clientWidth;
-    const cardWidth = getMetric("--showcase-card-width", 1680);
-    const gap = getMetric("--showcase-gap", 14);
-    const offsetX = getMetric("--showcase-offset-x", 10);
-    const center = ((viewportWidth - cardWidth) / 2) + offsetX;
-
-    return {
-      center,
-      prev: center - cardWidth - gap,
-      next: center + cardWidth + gap,
-      hiddenLeft: center - ((cardWidth + gap) * 2),
-      hiddenRight: center + ((cardWidth + gap) * 2)
-    };
-  };
+  const getCardWidth = () => slides[activeIndex]?.getBoundingClientRect().width || slides[0]?.getBoundingClientRect().width || 520;
 
   const applyState = (index) => {
     activeIndex = Math.min(Math.max(index, 0), lastIndex);
-    const slots = getSlots();
+    const viewport = slider.querySelector(".showcase-slider__viewport");
+    const cardWidth = getCardWidth();
+    const cardGap = getMetric("--showcase-card-gap", 10);
+    const hiddenOffset = getMetric("--showcase-hidden-offset", 320);
+    const prevIndex = activeIndex > 0 ? activeIndex - 1 : -1;
+    const nextIndex = activeIndex < lastIndex ? activeIndex + 1 : -1;
+    const viewportWidth = viewport?.clientWidth || slider.clientWidth || window.innerWidth;
+    const availablePeek = Math.max((viewportWidth - cardWidth) / 2, 0);
+    const edgeOffset = availablePeek > cardGap ? cardWidth + cardGap : cardWidth;
 
-    slides.forEach((slide, index) => {
-      slide.classList.remove("is-side", "is-active");
+    slides.forEach((slide, slideIndex) => {
+      const isActive = slideIndex === activeIndex;
+      const isPrev = slideIndex === prevIndex;
+      const isNext = slideIndex === nextIndex;
+      const isVisible = isActive || isPrev || isNext;
 
-      if (index === activeIndex) {
-        slide.classList.add("is-active");
-        slide.style.setProperty("--slide-x", `${slots.center}px`);
+      slide.classList.remove("is-active", "is-prev", "is-next", "is-hidden");
+      slide.classList.add(isActive ? "is-active" : isPrev ? "is-prev" : isNext ? "is-next" : "is-hidden");
+
+      slide.setAttribute("aria-selected", isActive ? "true" : "false");
+      slide.tabIndex = isVisible ? 0 : -1;
+
+      if (isActive) {
+        slide.style.setProperty("--slide-offset", "0px");
+        slide.style.setProperty("--slide-scale", "1");
+        slide.style.opacity = "1";
+        slide.style.filter = "none";
         return;
       }
 
-      if (activeIndex > 0 && index === activeIndex - 1) {
-        slide.classList.add("is-side");
-        slide.style.setProperty("--slide-x", `${slots.prev}px`);
+      if (isPrev) {
+        slide.style.setProperty("--slide-offset", `${-edgeOffset}px`);
+        slide.style.setProperty("--slide-scale", "1");
+        slide.style.opacity = "1";
+        slide.style.filter = "none";
         return;
       }
 
-      if (activeIndex < lastIndex && index === activeIndex + 1) {
-        slide.classList.add("is-side");
-        slide.style.setProperty("--slide-x", `${slots.next}px`);
+      if (isNext) {
+        slide.style.setProperty("--slide-offset", `${edgeOffset}px`);
+        slide.style.setProperty("--slide-scale", "1");
+        slide.style.opacity = "1";
+        slide.style.filter = "none";
         return;
       }
 
-      slide.style.setProperty("--slide-x", `${index < activeIndex ? slots.hiddenLeft : slots.hiddenRight}px`);
-    });
-
-    dots.forEach((dot, index) => {
-      dot.classList.toggle("is-active", index === activeIndex);
-      dot.setAttribute("aria-current", index === activeIndex ? "true" : "false");
+      const hiddenDirection = slideIndex < activeIndex ? -1 : 1;
+      slide.style.setProperty("--slide-offset", `${hiddenDirection * (edgeOffset + hiddenOffset)}px`);
+      slide.style.setProperty("--slide-scale", "1");
+      slide.style.opacity = "0";
+      slide.style.filter = "saturate(0.85)";
     });
   };
 
   const render = (nextIndex) => {
-    const targetIndex = Math.min(Math.max(nextIndex, 0), lastIndex);
-    if (targetIndex === activeIndex) {
-      applyState(targetIndex);
-      return;
-    }
-
-    applyState(targetIndex);
+    applyState(nextIndex);
   };
 
   slides.forEach((slide, index) => {
     slide.addEventListener("click", () => {
-      if (index === activeIndex) {
-        return;
+      render(index);
+    });
+
+    slide.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        render(Math.min(activeIndex + 1, lastIndex));
       }
 
-      render(index);
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        render(Math.max(activeIndex - 1, 0));
+      }
     });
   });
 
-  dots.forEach((dot, index) => {
-    dot.addEventListener("click", () => {
-      render(index);
-    });
-  });
-
-  slider.classList.add("is-initializing");
   applyState(0);
-  requestAnimationFrame(() => {
-    slider.classList.remove("is-initializing");
-  });
-  window.addEventListener("resize", () => applyState(activeIndex));
 };
 
 const init = () => {

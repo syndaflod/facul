@@ -612,19 +612,25 @@ p {
 }
 
 .showcase-phase {
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  justify-items: center;
   align-items: start;
 }
 
 .showcase-phase-copy {
-  grid-column: 1 / span 4;
+  grid-column: 1;
   position: relative;
   z-index: 2;
+  width: min(760px, 100%);
+  max-width: 100%;
+  margin-top: clamp(24px, 4vw, 40px);
+  text-align: center;
 }
 
 .showcase-shell {
-  grid-column: 1 / -1;
-  width: min(100vw, 1920px);
+  grid-column: 1;
+  width: 100vw;
+  min-width: 0;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
 }
@@ -634,61 +640,23 @@ p {
 }
 
 .showcase-slider {
-  --showcase-card-width: 1680px;
-  --showcase-offset-x: 10px;
-  --showcase-gap: 14px;
+  --showcase-card-width: min(72vw, 980px);
+  --showcase-card-height: clamp(320px, 40vw, 560px);
+  --showcase-card-gap: clamp(18px, 2.2vw, 32px);
+  --showcase-hidden-offset: clamp(220px, 24vw, 380px);
+  --showcase-edge-visible-ratio: 0.24;
   position: relative;
-  width: 100%;
-  padding: 28px 0 0;
-  overflow: visible;
+  width: 100vw;
+  max-width: none;
+  margin: 0 auto;
 }
 
 .showcase-slider__viewport {
   position: relative;
-  min-height: 740px;
-  overflow: visible;
+  width: 100vw;
+  min-height: calc(var(--showcase-card-height) + 28px);
+  overflow: hidden;
   isolation: isolate;
-}
-
-.showcase-slide {
-  position: absolute;
-  top: 22px;
-  left: 0;
-  width: var(--showcase-card-width);
-  height: 740px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  transform: translate3d(var(--slide-x, 0px), 0, 0);
-  transition: transform 0.72s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
-  clip-path: inset(0 round 30px);
-}
-
-.showcase-slider.is-initializing .showcase-slide {
-  transition: none;
-}
-
-.showcase-slide:focus-visible {
-  outline: none;
-}
-
-.showcase-slide.is-side {
-  z-index: 1;
-}
-
-.showcase-slide.is-active {
-  z-index: 2;
-  clip-path: inset(0 round 30px);
-}
-
-.showcase-slide.is-prev {
-  clip-path: inset(0 0 0 calc(100% - var(--showcase-peek)) round 30px);
-}
-
-.showcase-slide.is-next {
-  clip-path: inset(0 calc(100% - var(--showcase-peek)) 0 0 round 30px);
 }
 
 .showcase-slide__surface {
@@ -696,11 +664,12 @@ p {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 30px;
+  border-radius: 28px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(245, 245, 247, 0.98)),
-    #f5f5f7;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+    linear-gradient(180deg, rgba(245, 241, 237, 0.98), rgba(225, 219, 212, 0.96)),
+    linear-gradient(160deg, rgba(212, 211, 220, 0.82), rgba(240, 236, 231, 0.96));
+  box-shadow: 0 22px 52px rgba(8, 11, 19, 0.18);
+  border: 1px solid rgba(198, 192, 201, 0.76);
 }
 
 .showcase-slide__surface::before {
@@ -708,14 +677,98 @@ p {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 22% 28%, rgba(255, 255, 255, 0.94), transparent 28%),
-    radial-gradient(circle at 76% 76%, rgba(204, 207, 255, 0.12), transparent 28%);
+    radial-gradient(circle at 22% 28%, rgba(255, 255, 255, 0.56), transparent 28%),
+    radial-gradient(circle at 76% 76%, rgba(161, 168, 222, 0.22), transparent 28%);
   pointer-events: none;
+}
+
+.showcase-slide {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: var(--showcase-card-width);
+  height: var(--showcase-card-height);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: translateX(-50%) translateX(var(--slide-offset, 0)) scale(var(--slide-scale, 1));
+  transition:
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.42s ease,
+    filter 0.42s ease,
+    box-shadow 0.42s ease;
+  will-change: transform, opacity;
+}
+
+.showcase-slide:focus-visible {
+  outline: none;
+}
+
+.showcase-slide.is-active {
+  z-index: 3;
+}
+
+.showcase-slide.is-prev,
+.showcase-slide.is-next {
+  z-index: 2;
+}
+
+.showcase-slide.is-hidden {
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.showcase-slide.is-active .showcase-slide__surface {
+  border-color: rgba(255, 247, 239, 0.64);
+  box-shadow:
+    0 28px 64px rgba(8, 11, 19, 0.22),
+    0 0 0 2px rgba(255, 247, 239, 0.14);
+}
+
+.showcase-slide.is-prev .showcase-slide__surface,
+.showcase-slide.is-next .showcase-slide__surface {
+  box-shadow: 0 16px 34px rgba(8, 11, 19, 0.14);
+}
+
+.showcase-slide.is-prev:hover .showcase-slide__surface,
+.showcase-slide.is-next:hover .showcase-slide__surface,
+.showcase-slide.is-prev:focus-visible .showcase-slide__surface,
+.showcase-slide.is-next:focus-visible .showcase-slide__surface {
+  border-color: rgba(255, 247, 239, 0.4);
+  box-shadow: 0 20px 40px rgba(8, 11, 19, 0.18);
 }
 
 .showcase-slide__visual {
   position: absolute;
   inset: 0;
+}
+
+.showcase-slide__visual::before,
+.showcase-slide__visual::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.showcase-slide__visual--detail::before,
+.showcase-slide__visual--detail-alt::before {
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 28%, rgba(255, 255, 255, 0.9), transparent 0 16%),
+    radial-gradient(circle at 74% 22%, rgba(217, 211, 234, 0.9), transparent 0 18%),
+    linear-gradient(135deg, rgba(245, 240, 236, 0.96), rgba(214, 209, 217, 0.72));
+}
+
+.showcase-slide__visual--detail::after,
+.showcase-slide__visual--detail-alt::after {
+  right: -10%;
+  bottom: -14%;
+  width: 56%;
+  height: 56%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(181, 185, 221, 0.24), rgba(181, 185, 221, 0) 68%);
 }
 
 .showcase-slide__visual--headphones {
@@ -724,6 +777,10 @@ p {
   grid-template-rows: 1fr 0.56fr;
   gap: 12px;
   padding: clamp(38px, 4vw, 54px);
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255, 255, 255, 0.72), transparent 0 18%),
+    radial-gradient(circle at 82% 72%, rgba(174, 181, 229, 0.24), transparent 0 24%),
+    linear-gradient(145deg, rgba(242, 238, 232, 0.9), rgba(225, 220, 214, 0.64));
 }
 
 .visual-part,
@@ -731,13 +788,13 @@ p {
 .visual-capsule {
   display: block;
   border-radius: 24px;
-  border: 1px solid rgba(197, 199, 210, 0.7);
+  border: 1px solid rgba(152, 154, 171, 0.74);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(179, 184, 211, 0.62)),
-    linear-gradient(160deg, rgba(235, 236, 241, 0.9), rgba(158, 167, 214, 0.22));
+    linear-gradient(180deg, rgba(248, 247, 249, 0.95), rgba(165, 170, 196, 0.82)),
+    linear-gradient(160deg, rgba(227, 229, 235, 0.96), rgba(130, 141, 194, 0.26));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 24px 44px rgba(130, 137, 181, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 24px 44px rgba(102, 108, 146, 0.22);
 }
 
 .visual-part--left {
@@ -796,6 +853,49 @@ p {
   overflow: hidden;
 }
 
+.showcase-slide__visual--capsule::before,
+.showcase-slide__visual--capsule-alt::before {
+  inset: 0;
+  background:
+    radial-gradient(circle at 24% 28%, rgba(255, 255, 255, 0.76), transparent 0 16%),
+    radial-gradient(circle at 76% 70%, rgba(255, 207, 166, 0.34), transparent 0 22%),
+    linear-gradient(145deg, rgba(240, 235, 229, 0.92), rgba(223, 218, 215, 0.68));
+}
+
+.showcase-slide__visual--capsule::after,
+.showcase-slide__visual--capsule-alt::after {
+  left: -6%;
+  top: 10%;
+  width: 42%;
+  height: 42%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(193, 197, 228, 0.22), rgba(193, 197, 228, 0) 70%);
+}
+
+.showcase-slide__visual--detail-alt .visual-detail--arm {
+  left: 74%;
+  top: -8%;
+  width: 13%;
+  height: 64%;
+  transform: rotate(18deg);
+}
+
+.showcase-slide__visual--detail-alt .visual-detail--shell {
+  left: 10%;
+  bottom: -28%;
+  width: 52%;
+  height: 72%;
+  background:
+    radial-gradient(circle at 42% 34%, rgba(255, 216, 181, 0.76), rgba(204, 189, 230, 0.44) 28%, transparent 40%),
+    linear-gradient(180deg, rgba(176, 167, 214, 0.86), rgba(88, 87, 119, 0.96));
+}
+
+.showcase-slide__visual--detail-alt .visual-detail--button {
+  left: 48%;
+  bottom: 22%;
+  width: 16%;
+}
+
 .visual-capsule {
   position: absolute;
   border-radius: 999px;
@@ -822,6 +922,30 @@ p {
   height: 50%;
   background:
     linear-gradient(180deg, rgba(255, 213, 168, 0.9), rgba(255, 169, 111, 0.62)),
+    linear-gradient(160deg, rgba(241, 241, 245, 0.54), rgba(115, 128, 193, 0.14));
+}
+
+.showcase-slide__visual--capsule-alt .visual-capsule--large {
+  right: 8%;
+  top: 12%;
+  width: 24%;
+  height: 60%;
+}
+
+.showcase-slide__visual--capsule-alt .visual-capsule--small {
+  left: 14%;
+  bottom: 12%;
+  width: 56%;
+  height: 18%;
+}
+
+.showcase-slide__visual--capsule-alt .visual-capsule--accent {
+  left: 58%;
+  top: 18%;
+  width: 12%;
+  height: 34%;
+  background:
+    linear-gradient(180deg, rgba(255, 193, 147, 0.94), rgba(255, 145, 88, 0.66)),
     linear-gradient(160deg, rgba(241, 241, 245, 0.54), rgba(115, 128, 193, 0.14));
 }
 
@@ -1099,6 +1223,12 @@ p {
   .showcase-shell {
     grid-column: auto;
   }
+
+  .showcase-shell {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
 }
 
 @media (max-width: 640px) {
@@ -1192,39 +1322,21 @@ p {
     border-radius: 22px;
   }
 
-  .showcase-slider__viewport {
-    min-height: 740px;
-  }
-
   .showcase-slider {
-    --showcase-card-width: 1680px;
-    --showcase-offset-x: 10px;
-    --showcase-gap: 10px;
+    --showcase-card-width: min(88vw, 560px);
+    --showcase-card-height: clamp(250px, 62vw, 360px);
+    --showcase-card-gap: clamp(12px, 3vw, 18px);
+    --showcase-hidden-offset: clamp(170px, 28vw, 240px);
+    max-width: none;
   }
 
-  .showcase-slide {
-    top: 16px;
-    height: 740px;
+  .showcase-slider__viewport {
+    width: 100vw;
+    min-height: calc(var(--showcase-card-height) + 22px);
   }
 
   .showcase-slide__surface {
-    border-radius: 24px;
-  }
-
-  .showcase-slide {
-    clip-path: inset(0 round 24px);
-  }
-
-  .showcase-slide.is-active {
-    clip-path: inset(0 round 24px);
-  }
-
-  .showcase-slide.is-prev {
-    clip-path: inset(0 0 0 calc(100% - var(--showcase-peek)) round 24px);
-  }
-
-  .showcase-slide.is-next {
-    clip-path: inset(0 calc(100% - var(--showcase-peek)) 0 0 round 24px);
+    border-radius: 20px;
   }
 
   .showcase-slide__visual--headphones {

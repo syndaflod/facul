@@ -185,16 +185,10 @@
     <section class="panel section-afternoon afternoon-c">
       <div class="sticky-frame">
         <div class="shell phase-shell showcase-phase">
-          <div class="copy phase-copy showcase-phase-copy">
-            <span class="eyebrow js-afternoon-c-index">Afternoon Phase</span>
-            <h2 class="js-afternoon-c-title">Afternoon<br>Block Three</h2>
-            <p class="js-afternoon-c-text">Test</p>
-          </div>
-
           <div class="showcase-shell">
             <div class="showcase-slider js-afternoon-c-slider" data-showcase-slider>
-              <div class="showcase-slider__viewport">
-                <button class="showcase-slide is-active" type="button" data-showcase-slide aria-label="Abrir slide 1">
+              <div class="showcase-slider__viewport" role="tablist" aria-label="Galeria de slides">
+                <button class="showcase-slide is-active" type="button" role="tab" data-showcase-slide aria-label="Abrir slide 1" aria-selected="true">
                   <div class="showcase-slide__surface">
                     <div class="showcase-slide__visual showcase-slide__visual--detail">
                       <span class="visual-detail visual-detail--arm"></span>
@@ -204,7 +198,7 @@
                   </div>
                 </button>
 
-                <button class="showcase-slide" type="button" data-showcase-slide aria-label="Abrir slide 2">
+                <button class="showcase-slide" type="button" role="tab" data-showcase-slide aria-label="Abrir slide 2" aria-selected="false">
                   <div class="showcase-slide__surface">
                     <div class="showcase-slide__visual showcase-slide__visual--headphones">
                       <span class="visual-part visual-part--left"></span>
@@ -214,7 +208,7 @@
                   </div>
                 </button>
 
-                <button class="showcase-slide" type="button" data-showcase-slide aria-label="Abrir slide 3">
+                <button class="showcase-slide" type="button" role="tab" data-showcase-slide aria-label="Abrir slide 3" aria-selected="false">
                   <div class="showcase-slide__surface">
                     <div class="showcase-slide__visual showcase-slide__visual--capsule">
                       <span class="visual-capsule visual-capsule--large"></span>
@@ -223,9 +217,34 @@
                     </div>
                   </div>
                 </button>
-              </div>
 
+                <button class="showcase-slide" type="button" role="tab" data-showcase-slide aria-label="Abrir slide 4" aria-selected="false">
+                  <div class="showcase-slide__surface">
+                    <div class="showcase-slide__visual showcase-slide__visual--detail showcase-slide__visual--detail-alt">
+                      <span class="visual-detail visual-detail--arm"></span>
+                      <span class="visual-detail visual-detail--shell"></span>
+                      <span class="visual-detail visual-detail--button"></span>
+                    </div>
+                  </div>
+                </button>
+
+                <button class="showcase-slide" type="button" role="tab" data-showcase-slide aria-label="Abrir slide 5" aria-selected="false">
+                  <div class="showcase-slide__surface">
+                    <div class="showcase-slide__visual showcase-slide__visual--capsule showcase-slide__visual--capsule-alt">
+                      <span class="visual-capsule visual-capsule--large"></span>
+                      <span class="visual-capsule visual-capsule--small"></span>
+                      <span class="visual-capsule visual-capsule--accent"></span>
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
+          </div>
+
+          <div class="copy phase-copy showcase-phase-copy">
+            <span class="eyebrow js-afternoon-c-index">Afternoon Phase</span>
+            <h2 class="js-afternoon-c-title">Afternoon<br>Block Three</h2>
+            <p class="js-afternoon-c-text">Test</p>
           </div>
         </div>
       </div>
