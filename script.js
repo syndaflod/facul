@@ -1,10 +1,27 @@
 gsap.registerPlugin(ScrollTrigger);
 
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+
+if (typeof ScrollTrigger.clearScrollMemory === "function") {
+  ScrollTrigger.clearScrollMemory();
+}
+
 const clamp = (value, min = 0, max = 1) => Math.min(Math.max(value, min), max);
 const lerp = (start, end, amount) => start + (end - start) * amount;
 const mix = (from, to, amount) => from.map((value, index) => lerp(value, to[index], amount));
 const rgb = (value, alpha = 1) => `rgba(${value[0]}, ${value[1]}, ${value[2]}, ${alpha})`;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const resetInitialScroll = () => {
+  const navigationEntry = performance.getEntriesByType?.("navigation")?.[0];
+  const isReload = navigationEntry?.type === "reload";
+
+  if (isReload || window.scrollY !== 0) {
+    window.scrollTo(0, 0);
+  }
+};
 
 const atmosphereStops = [
   { stop: 0.0, top: [243, 213, 169], bottom: [110, 143, 229], glow: [255, 208, 132] },
@@ -213,6 +230,325 @@ const initSectionMap = () => {
   update();
 };
 
+const initExpandableCards = () => {
+  const overlay = document.querySelector(".card-overlay");
+  const backdrop = document.querySelector(".card-overlay__backdrop");
+  const panel = document.querySelector(".card-overlay__panel");
+  const content = document.querySelector(".card-overlay__content");
+  const closeButton = document.querySelector(".card-overlay__close");
+  const cards = Array.from(document.querySelectorAll("[data-expandable='true']"));
+
+  if (!overlay || !backdrop || !panel || !content || !closeButton || cards.length === 0) return;
+
+  document.body.classList.remove("is-overlay-open");
+
+  const state = {
+    activeCard: null,
+    activeClone: null,
+    activeTimeline: null
+  };
+
+  const applyScrollLock = () => {
+    document.body.classList.add("is-overlay-open");
+  };
+
+  const releaseScrollLock = () => {
+    document.body.classList.remove("is-overlay-open");
+  };
+
+  const getTargetBounds = () => {
+    const margin = window.innerWidth <= 640 ? 12 : window.innerWidth <= 920 ? 20 : 32;
+    const topInset = window.innerWidth <= 920 ? 16 : 24;
+    const width = window.innerWidth - margin * 2;
+    const height = Math.min(window.innerHeight - topInset * 2, Math.max(window.innerHeight * 0.88, 520));
+    const top = Math.max((window.innerHeight - height) / 2, topInset);
+
+    return {
+      left: margin,
+      top,
+      width,
+      height
+    };
+  };
+
+  const createPreviewClone = (card) => {
+    const clone = card.cloneNode(true);
+
+    clone.classList.add("card-overlay__card", "card-overlay__card--preview");
+    clone.removeAttribute("tabindex");
+    clone.removeAttribute("data-expandable");
+    clone.removeAttribute("role");
+    clone.removeAttribute("aria-haspopup");
+    clone.setAttribute("aria-hidden", "true");
+
+    return clone;
+  };
+
+  const createDetailMarkup = (card) => {
+    const title = card.dataset.detailTitle || card.querySelector("h2")?.textContent || "";
+    const tag = card.dataset.detailTag || card.querySelector("span")?.textContent || "";
+    const text = card.dataset.detailText || card.querySelector("p")?.textContent || "";
+    const media = card.querySelector(".card-media");
+    const visualMarkup = media ? media.outerHTML : "";
+
+    return `
+      <div class="card-overlay__inner">
+        <div class="card-overlay__visual">${visualMarkup}</div>
+        <div class="card-overlay__copy">
+          <span class="card-overlay__eyebrow">${tag}</span>
+          <h2 class="card-overlay__title" id="card-overlay-title">${title}</h2>
+          <p class="card-overlay__text">${text}</p>
+          <div class="card-overlay__hint">Toque fora ou pressione Esc para fechar</div>
+        </div>
+      </div>
+    `;
+  };
+
+  const closeOverlay = () => {
+    if (!state.activeCard || !state.activeClone) return;
+
+    const sourceCard = state.activeCard;
+    const clone = state.activeClone;
+    const finalBounds = sourceCard.getBoundingClientRect();
+    const currentBounds = clone.getBoundingClientRect();
+    const copy = clone.querySelector(".card-overlay__copy");
+
+    state.activeTimeline?.kill();
+
+    if (copy) {
+      clone.className = `${sourceCard.className} card-overlay__card card-overlay__card--preview`;
+      clone.innerHTML = sourceCard.innerHTML;
+      clone.style.left = `${currentBounds.left}px`;
+      clone.style.top = `${currentBounds.top}px`;
+      clone.style.width = `${currentBounds.width}px`;
+      clone.style.height = `${currentBounds.height}px`;
+      clone.style.borderRadius = `${window.innerWidth <= 640 ? 26 : 32}px`;
+    }
+
+    const tl = gsap.timeline({
+      defaults: { ease: "power3.inOut" },
+      onComplete: () => {
+        clone.remove();
+        state.activeCard.classList.remove("is-source-hidden");
+        state.activeCard.focus({ preventScroll: true });
+        overlay.classList.remove("is-open");
+        overlay.setAttribute("aria-hidden", "true");
+        releaseScrollLock();
+        panel.style.pointerEvents = "none";
+        state.activeCard = null;
+        state.activeClone = null;
+        state.activeTimeline = null;
+      }
+    });
+
+    state.activeTimeline = tl;
+
+    tl.to(closeButton, { opacity: 0, scale: 0.92, duration: 0.18 }, 0)
+      .to(backdrop, { opacity: 0, duration: 0.34 }, 0)
+      .to(clone, {
+        left: finalBounds.left,
+        top: finalBounds.top,
+        width: finalBounds.width,
+        height: finalBounds.height,
+        borderRadius: gsap.getProperty(sourceCard, "borderRadius"),
+        duration: 0.58
+      }, 0);
+  };
+
+  const openOverlay = (card) => {
+    if (state.activeCard || state.activeTimeline) return;
+
+    const initialBounds = card.getBoundingClientRect();
+    const targetBounds = getTargetBounds();
+    const clone = createPreviewClone(card);
+
+    clone.style.left = `${initialBounds.left}px`;
+    clone.style.top = `${initialBounds.top}px`;
+    clone.style.width = `${initialBounds.width}px`;
+    clone.style.height = `${initialBounds.height}px`;
+    clone.style.borderRadius = getComputedStyle(card).borderRadius;
+
+    content.replaceChildren(clone);
+    overlay.classList.add("is-open");
+    overlay.setAttribute("aria-hidden", "false");
+    panel.style.pointerEvents = "auto";
+    applyScrollLock();
+    card.classList.add("is-source-hidden");
+
+    gsap.set(backdrop, { opacity: 0 });
+    gsap.set(closeButton, { opacity: 0, scale: 0.92 });
+
+    state.activeCard = card;
+    state.activeClone = clone;
+
+    const tl = gsap.timeline({
+      defaults: { ease: "power3.inOut" },
+      onComplete: () => {
+        clone.className = "card-overlay__card";
+        clone.innerHTML = createDetailMarkup(card);
+        const copy = clone.querySelector(".card-overlay__copy");
+        gsap.set(copy, { opacity: 0, y: 24 });
+        closeButton.focus({ preventScroll: true });
+        gsap.timeline({
+          defaults: { ease: "power2.out" },
+          onComplete: () => {
+            state.activeTimeline = null;
+          }
+        })
+          .to(closeButton, { opacity: 1, scale: 1, duration: 0.24 }, 0)
+          .to(copy, { opacity: 1, y: 0, duration: 0.34 }, 0.04);
+      }
+    });
+
+    state.activeTimeline = tl;
+
+    tl.to(backdrop, { opacity: 1, duration: 0.38 }, 0)
+      .to(clone, {
+        left: targetBounds.left,
+        top: targetBounds.top,
+        width: targetBounds.width,
+        height: targetBounds.height,
+        borderRadius: window.innerWidth <= 640 ? 26 : 32,
+        duration: 0.7
+      }, 0);
+  };
+
+  cards.forEach((card) => {
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-haspopup", "dialog");
+    card.addEventListener("click", () => openOverlay(card));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openOverlay(card);
+      }
+    });
+  });
+
+  backdrop.addEventListener("click", closeOverlay);
+  closeButton.addEventListener("click", closeOverlay);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeOverlay();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!state.activeClone) return;
+    const bounds = getTargetBounds();
+    gsap.set(state.activeClone, {
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+      height: bounds.height
+    });
+  });
+};
+
+const initShowcaseSlider = () => {
+  const slider = document.querySelector("[data-showcase-slider]");
+  if (!slider) return;
+
+  const slides = Array.from(slider.querySelectorAll("[data-showcase-slide]"));
+  const dots = Array.from(slider.querySelectorAll("[data-showcase-dot]"));
+  const viewport = slider.querySelector(".showcase-slider__viewport");
+
+  if (slides.length === 0 || !viewport) return;
+
+  let activeIndex = 0;
+  const lastIndex = slides.length - 1;
+
+  const getMetric = (name, fallback) => {
+    const value = getComputedStyle(slider).getPropertyValue(name).trim();
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const getSlots = () => {
+    const viewportWidth = viewport.clientWidth;
+    const cardWidth = getMetric("--showcase-card-width", 1680);
+    const gap = getMetric("--showcase-gap", 14);
+    const offsetX = getMetric("--showcase-offset-x", 10);
+    const center = ((viewportWidth - cardWidth) / 2) + offsetX;
+
+    return {
+      center,
+      prev: center - cardWidth - gap,
+      next: center + cardWidth + gap,
+      hiddenLeft: center - ((cardWidth + gap) * 2),
+      hiddenRight: center + ((cardWidth + gap) * 2)
+    };
+  };
+
+  const applyState = (index) => {
+    activeIndex = Math.min(Math.max(index, 0), lastIndex);
+    const slots = getSlots();
+
+    slides.forEach((slide, index) => {
+      slide.classList.remove("is-side", "is-active");
+
+      if (index === activeIndex) {
+        slide.classList.add("is-active");
+        slide.style.setProperty("--slide-x", `${slots.center}px`);
+        return;
+      }
+
+      if (activeIndex > 0 && index === activeIndex - 1) {
+        slide.classList.add("is-side");
+        slide.style.setProperty("--slide-x", `${slots.prev}px`);
+        return;
+      }
+
+      if (activeIndex < lastIndex && index === activeIndex + 1) {
+        slide.classList.add("is-side");
+        slide.style.setProperty("--slide-x", `${slots.next}px`);
+        return;
+      }
+
+      slide.style.setProperty("--slide-x", `${index < activeIndex ? slots.hiddenLeft : slots.hiddenRight}px`);
+    });
+
+    dots.forEach((dot, index) => {
+      dot.classList.toggle("is-active", index === activeIndex);
+      dot.setAttribute("aria-current", index === activeIndex ? "true" : "false");
+    });
+  };
+
+  const render = (nextIndex) => {
+    const targetIndex = Math.min(Math.max(nextIndex, 0), lastIndex);
+    if (targetIndex === activeIndex) {
+      applyState(targetIndex);
+      return;
+    }
+
+    applyState(targetIndex);
+  };
+
+  slides.forEach((slide, index) => {
+    slide.addEventListener("click", () => {
+      if (index === activeIndex) {
+        return;
+      }
+
+      render(index);
+    });
+  });
+
+  dots.forEach((dot, index) => {
+    dot.addEventListener("click", () => {
+      render(index);
+    });
+  });
+
+  slider.classList.add("is-initializing");
+  applyState(0);
+  requestAnimationFrame(() => {
+    slider.classList.remove("is-initializing");
+  });
+  window.addEventListener("resize", () => applyState(activeIndex));
+};
+
 const init = () => {
   initCanvasBackground();
   initHero();
@@ -221,15 +557,26 @@ const init = () => {
   initPairSection(".morning-c", "morning-c");
   initPairSection(".afternoon-a", "afternoon-a");
   initPairSection(".afternoon-b", "afternoon-b");
+  initPairSection(".afternoon-c", "afternoon-c");
   initPairSection(".night-a", "night-a");
   initPairSection(".night-b", "night-b");
   initMidnight();
   initSectionMap();
+  initExpandableCards();
+  initShowcaseSlider();
   ScrollTrigger.refresh();
 };
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", () => {
+    resetInitialScroll();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(init);
+    });
+  });
 } else {
-  init();
+  resetInitialScroll();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(init);
+  });
 }

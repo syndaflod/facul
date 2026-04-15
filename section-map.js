@@ -6,6 +6,7 @@ function getSectionMapConfig() {
     { selector: ".morning-c", label: "Morning III", size: 26 },
     { selector: ".afternoon-a", label: "Afternoon I", size: 26 },
     { selector: ".afternoon-b", label: "Afternoon II", size: 26 },
+    { selector: ".afternoon-c", label: "Afternoon III", size: 26 },
     { selector: ".night-a", label: "Night I", size: 26 },
     { selector: ".night-b", label: "Night II", size: 26 },
     { selector: ".section-midnight", label: "Midnight", size: 26 }
