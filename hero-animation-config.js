@@ -20,14 +20,14 @@ function getHeroAnimationConfig() {
     },
     {
       selector: ".js-hero-card-a",
-      from: { y: 44, opacity: 0 },
-      to: { y: -18, opacity: 1, scale: 1.01 },
+      from: { y: 0, opacity: 1, scale: 1 },
+      to: { y: -18, opacity: 0.92, scale: 1.01 },
       position: 0.1
     },
     {
       selector: ".js-hero-card-b",
-      from: { y: 58, opacity: 0, scale: 0.94 },
-      to: { y: -10, opacity: 0.92, scale: 1.02 },
+      from: { y: 0, opacity: 1, scale: 1 },
+      to: { y: -10, opacity: 0.88, scale: 1.02 },
       position: 0.18
     },
     {

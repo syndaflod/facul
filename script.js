@@ -13,6 +13,62 @@ const lerp = (start, end, amount) => start + (end - start) * amount;
 const mix = (from, to, amount) => from.map((value, index) => lerp(value, to[index], amount));
 const rgb = (value, alpha = 1) => `rgba(${value[0]}, ${value[1]}, ${value[2]}, ${alpha})`;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const disableScrollEffectsForTest = true;
+
+const initSmoothScroll = () => {
+  if (prefersReducedMotion || !window.Lenis) return null;
+
+  const lenis = new Lenis({
+    duration: 2.75,
+    easing: (value) => 1 - Math.pow(1 - value, 5),
+    smoothWheel: true,
+    syncTouch: false,
+    wheelMultiplier: 0.08,
+    touchMultiplier: 0.42
+  });
+
+  window.lenis = lenis;
+  lenis.on("scroll", ScrollTrigger.update);
+
+  gsap.ticker.add((time) => {
+    lenis.raf(time * 1000);
+  });
+
+  gsap.ticker.lagSmoothing(0);
+
+  return lenis;
+};
+
+const initTextScrollBlur = () => {
+  if (prefersReducedMotion || disableScrollEffectsForTest) return;
+
+  const root = document.documentElement;
+  const setBlur = gsap.quickSetter(root, "--text-scroll-blur");
+  let currentBlur = 0;
+  let lastScroll = window.scrollY;
+  let lastTime = performance.now();
+
+  gsap.ticker.add(() => {
+    const now = performance.now();
+    let velocity = 0;
+
+    if (window.lenis && typeof window.lenis.velocity === "number") {
+      velocity = Math.abs(window.lenis.velocity);
+    } else {
+      const scroll = window.scrollY;
+      velocity = Math.abs(scroll - lastScroll) / Math.max(now - lastTime, 16) * 16;
+      lastScroll = scroll;
+      lastTime = now;
+    }
+
+    const targetBlur = clamp(velocity * 0.075, 0, 4.5);
+    const ease = targetBlur > currentBlur ? 0.32 : 0.12;
+    currentBlur = lerp(currentBlur, targetBlur, ease);
+
+    if (currentBlur < 0.015) currentBlur = 0;
+    setBlur(`${currentBlur.toFixed(3)}px`);
+  });
+};
 
 const resetInitialScroll = () => {
   const navigationEntry = performance.getEntriesByType?.("navigation")?.[0];
@@ -95,6 +151,8 @@ const initCanvasBackground = () => {
   resize();
   window.addEventListener("resize", resize);
 
+  if (disableScrollEffectsForTest) return;
+
   gsap.to(state, {
     progress: 1,
     ease: "none",
@@ -109,6 +167,11 @@ const initCanvasBackground = () => {
 };
 
 const initThreeBackground = () => {
+  if (disableScrollEffectsForTest) {
+    initCanvasBackground();
+    return;
+  }
+
   const canvas = document.querySelector(".page-bg-canvas");
   const THREE = window.THREE;
 
@@ -289,7 +352,7 @@ const initThreeBackground = () => {
     camera.fov = width < 720 ? 56 : 48;
     camera.updateProjectionMatrix();
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(width, height, false);
   };
 
@@ -326,8 +389,9 @@ const initThreeBackground = () => {
 
   const pointerStrength = prefersReducedMotion ? 0.08 : 0.22;
 
-  const renderFrame = () => {
-    const time = performance.now() * 0.001;
+  const renderFrame = (time = performance.now() * 0.001) => {
+    if (document.hidden) return;
+
     const progress = state.progress;
     const cameraPath = getCameraPath(progress);
     const lookTarget = getLookTarget(progress);
@@ -363,11 +427,6 @@ const initThreeBackground = () => {
     renderer.render(scene, camera);
   };
 
-  const tick = () => {
-    renderFrame();
-    window.requestAnimationFrame(tick);
-  };
-
   window.addEventListener("pointermove", (event) => {
     state.pointerX = (event.clientX / window.innerWidth - 0.5) * 2;
     state.pointerY = (event.clientY / window.innerHeight - 0.5) * 2;
@@ -376,7 +435,7 @@ const initThreeBackground = () => {
   window.addEventListener("resize", resize);
   resize();
   applyAtmosphere(0);
-  tick();
+  gsap.ticker.add(renderFrame);
 
   gsap.to(state, {
     progress: 1,
@@ -392,6 +451,8 @@ const initThreeBackground = () => {
 };
 
 const initHero = () => {
+  if (disableScrollEffectsForTest) return;
+
   const tl = gsap.timeline({
     scrollTrigger: {
       trigger: ".hero",
@@ -407,36 +468,138 @@ const initHero = () => {
 };
 
 const initPairSection = (sectionClass, prefix) => {
-  const tl = gsap.timeline({
-    scrollTrigger: {
-      trigger: sectionClass,
-      start: "top top",
-      end: "bottom bottom",
-      scrub: 1
-    }
+  if (disableScrollEffectsForTest) return;
+
+  const section = document.querySelector(sectionClass);
+  if (!section) return;
+  section.classList.add("is-scroll-motion");
+
+  const copyNodes = [
+    `.js-${prefix}-index`,
+    `.js-${prefix}-title`,
+    `.js-${prefix}-text`
+  ].flatMap((selector) => gsap.utils.toArray(selector));
+
+  const cardNodes = [
+    `.js-${prefix}-card-1`,
+    `.js-${prefix}-card-2`,
+    `.js-${prefix}-slider`
+  ].flatMap((selector) => gsap.utils.toArray(selector));
+
+  gsap.set([...copyNodes, ...cardNodes], {
+    opacity: 1,
+    force3D: true
   });
 
-  tl.fromTo(`.js-${prefix}-index`, { y: 24, opacity: 0 }, { y: -10, opacity: 1 }, 0.08)
-    .fromTo(`.js-${prefix}-title`, { y: 48, opacity: 0 }, { y: -14, opacity: 1 }, 0.12)
-    .fromTo(`.js-${prefix}-text`, { y: 54, opacity: 0 }, { y: -6, opacity: 0.92 }, 0.12)
-    .fromTo(`.js-${prefix}-card-1`, { y: 58, opacity: 0, scale: 0.95 }, { y: -8, opacity: 1, scale: 1.012 }, 0.12)
-    .fromTo(`.js-${prefix}-card-2`, { y: 62, opacity: 0, scale: 0.94 }, { y: -2, opacity: 1, scale: 1.016 }, 0.12);
+  copyNodes.forEach((node, index) => {
+    gsap.fromTo(node, {
+      y: 72 + index * 10
+    }, {
+      y: -54 - index * 8,
+      ease: "none",
+      scrollTrigger: {
+        trigger: section,
+        start: "top bottom",
+        end: "bottom top",
+        scrub: 1.25
+      }
+    });
+  });
+
+  cardNodes.forEach((node, index) => {
+    gsap.fromTo(node, {
+      y: 120 + index * 42,
+      rotate: index === 0 ? -0.8 : 0.8,
+      scale: 0.985
+    }, {
+      y: -96 - index * 34,
+      rotate: index === 0 ? 0.7 : -0.7,
+      scale: 1.012,
+      ease: "none",
+      scrollTrigger: {
+        trigger: section,
+        start: "top bottom",
+        end: "bottom top",
+        scrub: 1.35
+      }
+    });
+  });
+
+  gsap.fromTo(section.querySelector(".sticky-frame"), {
+    y: 34
+  }, {
+    y: -28,
+    ease: "none",
+    scrollTrigger: {
+      trigger: section,
+      start: "top bottom",
+      end: "bottom top",
+      scrub: 1.6
+    }
+  });
 };
 
 const initMidnight = () => {
-  const tl = gsap.timeline({
-    scrollTrigger: {
-      trigger: ".section-midnight",
-      start: "top top",
-      end: "bottom bottom",
-      scrub: 1.1
-    }
+  if (disableScrollEffectsForTest) return;
+
+  const section = document.querySelector(".section-midnight");
+  if (!section) return;
+  section.classList.add("is-scroll-motion");
+
+  const copyNodes = gsap.utils.toArray(".js-midnight-index, .js-midnight-title, .js-midnight-text");
+  const card = document.querySelector(".js-midnight-card");
+
+  gsap.set([...copyNodes, card].filter(Boolean), {
+    opacity: 1,
+    force3D: true
   });
 
-  tl.fromTo(".js-midnight-index", { y: 26, opacity: 0 }, { y: -10, opacity: 1 }, 0.04)
-    .fromTo(".js-midnight-title", { y: 52, opacity: 0 }, { y: -16, opacity: 1 }, 0.1)
-    .fromTo(".js-midnight-text", { y: 62, opacity: 0 }, { y: -6, opacity: 0.88 }, 0.16)
-    .fromTo(".js-midnight-card", { y: 80, opacity: 0, scale: 0.92 }, { y: 0, opacity: 1, scale: 1.015 }, 0.24);
+  copyNodes.forEach((node, index) => {
+    gsap.fromTo(node, {
+      y: 76 + index * 12
+    }, {
+      y: -58 - index * 10,
+      ease: "none",
+      scrollTrigger: {
+        trigger: section,
+        start: "top bottom",
+        end: "bottom top",
+        scrub: 1.3
+      }
+    });
+  });
+
+  if (card) {
+    gsap.fromTo(card, {
+      y: 132,
+      scale: 0.985,
+      rotate: -0.6
+    }, {
+      y: -110,
+      scale: 1.01,
+      rotate: 0.6,
+      ease: "none",
+      scrollTrigger: {
+        trigger: section,
+        start: "top bottom",
+        end: "bottom top",
+        scrub: 1.45
+      }
+    });
+  }
+
+  gsap.fromTo(section.querySelector(".sticky-frame"), {
+    y: 42
+  }, {
+    y: -34,
+    ease: "none",
+    scrollTrigger: {
+      trigger: section,
+      start: "top bottom",
+      end: "bottom top",
+      scrub: 1.7
+    }
+  });
 };
 
 const initSectionMap = () => {
@@ -481,9 +644,8 @@ const initSectionMap = () => {
       if (section.element.matches(".hero")) return 0;
 
       const sectionTop = window.scrollY + section.element.getBoundingClientRect().top;
-      const preloadOffset = window.innerWidth <= 640 ? 28 : window.innerWidth <= 960 ? 36 : 48;
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      return Math.min(Math.max(sectionTop + preloadOffset, 0), maxScroll);
+      return Math.min(Math.max(sectionTop, 0), maxScroll);
     };
 
     button.addEventListener("click", () => {
@@ -491,7 +653,16 @@ const initSectionMap = () => {
 
       releaseMapJump();
       document.body.classList.add("is-map-jumping");
-      window.scrollTo({ top: target, behavior: prefersReducedMotion ? "auto" : "smooth" });
+
+      if (window.lenis && !prefersReducedMotion) {
+        window.lenis.scrollTo(target, {
+          duration: 1.05,
+          easing: (value) => 1 - Math.pow(1 - value, 3),
+          onComplete: releaseMapJump
+        });
+      } else {
+        window.scrollTo({ top: target, behavior: "auto" });
+      }
 
       if ("onscrollend" in window) {
         window.addEventListener("scrollend", releaseMapJump, { once: true });
@@ -605,6 +776,8 @@ const initExpandableCards = () => {
     const clone = card.cloneNode(true);
 
     clone.classList.add("card-overlay__card", "card-overlay__card--preview");
+    clone.classList.remove("is-source-hidden");
+    clone.removeAttribute("style");
     clone.removeAttribute("tabindex");
     clone.removeAttribute("data-expandable");
     clone.removeAttribute("role");
@@ -653,6 +826,14 @@ const initExpandableCards = () => {
     return { body, hint };
   };
 
+  const getDetailEnterNodes = (clone) => Array.from(clone.children).filter((child) => (
+    child.classList.contains("card-media")
+    || child.classList.contains("card-overlay__hint")
+    || child.tagName === "SPAN"
+    || child.tagName === "H2"
+    || child.tagName === "P"
+  ));
+
   const positionCloseButton = (bounds) => {
     if (!bounds) return;
 
@@ -676,6 +857,7 @@ const initExpandableCards = () => {
 
     const sourceCard = state.activeCard;
     const clone = state.activeClone;
+    const sourceRadius = getComputedStyle(sourceCard).borderRadius;
     const finalBounds = sourceCard.getBoundingClientRect();
     const targetBounds = state.activeBounds || getTargetBounds();
     const finalDelta = getBoundsDelta(finalBounds, targetBounds);
@@ -722,7 +904,7 @@ const initExpandableCards = () => {
         y: finalDelta.y,
         scaleX: finalDelta.scaleX,
         scaleY: finalDelta.scaleY,
-        borderRadius: gsap.getProperty(sourceCard, "borderRadius"),
+        borderRadius: sourceRadius,
         duration: 0.58
       }, 0);
   };
@@ -731,6 +913,8 @@ const initExpandableCards = () => {
     if (state.activeCard || state.activeTimeline) return;
 
     const initialBounds = getOpeningBounds(card);
+    const initialRadius = getComputedStyle(card).borderRadius;
+    const targetRadius = `${window.innerWidth <= 640 ? 26 : 32}px`;
     const targetBounds = getTargetBounds();
     const openingDelta = getBoundsDelta(initialBounds, targetBounds);
     const clone = createPreviewClone(card);
@@ -739,7 +923,7 @@ const initExpandableCards = () => {
     clone.style.top = `${targetBounds.top}px`;
     clone.style.width = `${targetBounds.width}px`;
     clone.style.height = `${targetBounds.height}px`;
-    clone.style.borderRadius = getComputedStyle(card).borderRadius;
+    clone.style.borderRadius = initialRadius;
     syncCardSurface(card, clone);
 
     content.replaceChildren(clone);
@@ -753,10 +937,12 @@ const initExpandableCards = () => {
     gsap.set(backdrop, { opacity: 0 });
     gsap.set(closeButton, { opacity: 0, scale: 0.92 });
     gsap.set(clone, {
+      opacity: 1,
       x: openingDelta.x,
       y: openingDelta.y,
       scaleX: openingDelta.scaleX,
-      scaleY: openingDelta.scaleY
+      scaleY: openingDelta.scaleY,
+      borderRadius: initialRadius
     });
 
     state.activeCard = card;
@@ -767,9 +953,9 @@ const initExpandableCards = () => {
       defaults: { ease: "power3.inOut" },
       onComplete: () => {
         syncCardSurface(card, clone);
-        const { body, hint } = applyDetailState(clone, card);
-        const detailNodes = [body, hint].filter(Boolean);
-        gsap.set(detailNodes, { opacity: 0, y: 14 });
+        applyDetailState(clone, card);
+        const detailNodes = getDetailEnterNodes(clone);
+        gsap.set(detailNodes, { opacity: 0, y: -18 });
         closeButton.focus({ preventScroll: true });
         gsap.timeline({
           defaults: { ease: "power2.out" },
@@ -778,7 +964,7 @@ const initExpandableCards = () => {
           }
         })
           .to(closeButton, { opacity: 1, scale: 1, duration: 0.24 }, 0)
-          .to(detailNodes, { opacity: 1, y: 0, duration: 0.28, stagger: 0.03 }, 0.02);
+          .to(detailNodes, { opacity: 1, y: 0, duration: 0.34, stagger: 0.055 }, 0.02);
       }
     });
 
@@ -790,7 +976,8 @@ const initExpandableCards = () => {
         y: 0,
         scaleX: 1,
         scaleY: 1,
-        borderRadius: window.innerWidth <= 640 ? 26 : 32,
+        opacity: 1,
+        borderRadius: targetRadius,
         duration: 0.7
       }, 0);
   };
@@ -935,6 +1122,8 @@ const initShowcaseSlider = () => {
 };
 
 const init = () => {
+  initSmoothScroll();
+  initTextScrollBlur();
   initThreeBackground();
   initHero();
   initPairSection(".morning-a", "morning-a");
