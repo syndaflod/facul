@@ -416,11 +416,11 @@ const initPairSection = (sectionClass, prefix) => {
     }
   });
 
-  tl.fromTo(`.js-${prefix}-index`, { y: 24, opacity: 0 }, { y: -12, opacity: 1 }, 0.04)
-    .fromTo(`.js-${prefix}-title`, { y: 54, opacity: 0 }, { y: -18, opacity: 1 }, 0.1)
-    .fromTo(`.js-${prefix}-text`, { y: 66, opacity: 0 }, { y: -8, opacity: 0.92 }, 0.16)
-    .fromTo(`.js-${prefix}-card-1`, { y: 74, opacity: 0, scale: 0.94 }, { y: -12, opacity: 1, scale: 1.015 }, 0.24)
-    .fromTo(`.js-${prefix}-card-2`, { y: 90, opacity: 0, scale: 0.92 }, { y: -4, opacity: 1, scale: 1.02 }, 0.3);
+  tl.fromTo(`.js-${prefix}-index`, { y: 24, opacity: 0 }, { y: -10, opacity: 1 }, 0.08)
+    .fromTo(`.js-${prefix}-title`, { y: 48, opacity: 0 }, { y: -14, opacity: 1 }, 0.12)
+    .fromTo(`.js-${prefix}-text`, { y: 54, opacity: 0 }, { y: -6, opacity: 0.92 }, 0.12)
+    .fromTo(`.js-${prefix}-card-1`, { y: 58, opacity: 0, scale: 0.95 }, { y: -8, opacity: 1, scale: 1.012 }, 0.12)
+    .fromTo(`.js-${prefix}-card-2`, { y: 62, opacity: 0, scale: 0.94 }, { y: -2, opacity: 1, scale: 1.016 }, 0.12);
 };
 
 const initMidnight = () => {
@@ -443,6 +443,7 @@ const initSectionMap = () => {
   const map = document.querySelector(".section-map");
   const itemsContainer = document.querySelector(".section-map__items");
   const config = window.getSectionMapConfig?.() || [];
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (!map || !itemsContainer || config.length === 0) return;
 
@@ -451,6 +452,16 @@ const initSectionMap = () => {
     .filter((item) => item.element);
 
   if (sections.length === 0) return;
+
+  let navigationTimer = null;
+
+  const releaseMapJump = () => {
+    document.body.classList.remove("is-map-jumping");
+    if (navigationTimer) {
+      window.clearTimeout(navigationTimer);
+      navigationTimer = null;
+    }
+  };
 
   const buttons = sections.map((section, index) => {
     const button = document.createElement("button");
@@ -467,13 +478,27 @@ const initSectionMap = () => {
     button.appendChild(label);
 
     const getScrollTarget = () => {
-      const inset = Math.min(window.innerHeight * 0.08, 72);
+      if (section.element.matches(".hero")) return 0;
+
+      const sectionTop = window.scrollY + section.element.getBoundingClientRect().top;
+      const preloadOffset = window.innerWidth <= 640 ? 28 : window.innerWidth <= 960 ? 36 : 48;
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      return Math.min(Math.max(section.element.offsetTop - inset, 0), maxScroll);
+      return Math.min(Math.max(sectionTop + preloadOffset, 0), maxScroll);
     };
 
     button.addEventListener("click", () => {
-      window.scrollTo({ top: Math.max(getScrollTarget(), 0), behavior: "smooth" });
+      const target = Math.max(getScrollTarget(), 0);
+
+      releaseMapJump();
+      document.body.classList.add("is-map-jumping");
+      window.scrollTo({ top: target, behavior: prefersReducedMotion ? "auto" : "smooth" });
+
+      if ("onscrollend" in window) {
+        window.addEventListener("scrollend", releaseMapJump, { once: true });
+        return;
+      }
+
+      navigationTimer = window.setTimeout(releaseMapJump, prefersReducedMotion ? 80 : 950);
     });
 
     itemsContainer.appendChild(button);
@@ -528,7 +553,8 @@ const initExpandableCards = () => {
   const state = {
     activeCard: null,
     activeClone: null,
-    activeTimeline: null
+    activeTimeline: null,
+    activeBounds: null
   };
 
   const applyScrollLock = () => {
@@ -554,6 +580,27 @@ const initExpandableCards = () => {
     };
   };
 
+  const getOpeningBounds = (card) => {
+    const rect = card.getBoundingClientRect();
+    const isLifted = card.matches(":hover") || card.matches(":focus-visible");
+
+    if (!isLifted) {
+      return rect;
+    }
+
+    const hoverScale = 1.01;
+    const hoverLift = 10;
+    const width = rect.width / hoverScale;
+    const height = rect.height / hoverScale;
+
+    return {
+      left: rect.left + (rect.width - width) / 2,
+      top: rect.top + hoverLift + (rect.height - height) / 2,
+      width,
+      height
+    };
+  };
+
   const createPreviewClone = (card) => {
     const clone = card.cloneNode(true);
 
@@ -567,25 +614,62 @@ const initExpandableCards = () => {
     return clone;
   };
 
-  const createDetailMarkup = (card) => {
-    const title = card.dataset.detailTitle || card.querySelector("h2")?.textContent || "";
-    const tag = card.dataset.detailTag || card.querySelector("span")?.textContent || "";
-    const text = card.dataset.detailText || card.querySelector("p")?.textContent || "";
-    const media = card.querySelector(".card-media");
-    const visualMarkup = media ? media.outerHTML : "";
+  const syncCardSurface = (sourceCard, clone) => {
+    const computed = getComputedStyle(sourceCard);
 
-    return `
-      <div class="card-overlay__inner">
-        <div class="card-overlay__visual">${visualMarkup}</div>
-        <div class="card-overlay__copy">
-          <span class="card-overlay__eyebrow">${tag}</span>
-          <h2 class="card-overlay__title" id="card-overlay-title">${title}</h2>
-          <p class="card-overlay__text">${text}</p>
-          <div class="card-overlay__hint">Toque fora ou pressione Esc para fechar</div>
-        </div>
-      </div>
-    `;
+    clone.style.background = computed.background;
+    clone.style.border = computed.border;
+    clone.style.boxShadow = computed.boxShadow;
+    clone.style.backdropFilter = computed.backdropFilter;
+    clone.style.webkitBackdropFilter = computed.webkitBackdropFilter;
+    clone.style.color = computed.color;
   };
+
+  const applyDetailState = (clone, card) => {
+    const text = card.dataset.detailText || card.querySelector("p")?.textContent || "";
+    let body = clone.querySelector("p");
+    let hint = clone.querySelector(".card-overlay__hint");
+
+    clone.classList.remove("card-overlay__card--preview");
+    clone.classList.add("card-overlay__card--detail");
+    clone.setAttribute("aria-hidden", "true");
+
+    if (body) {
+      body.textContent = text;
+    } else {
+      const description = document.createElement("p");
+      description.textContent = text;
+      clone.appendChild(description);
+      body = description;
+    }
+
+    if (!hint) {
+      hint = document.createElement("div");
+      hint.className = "card-overlay__hint";
+      hint.textContent = "Toque fora ou pressione Esc para fechar";
+      clone.appendChild(hint);
+    }
+
+    return { body, hint };
+  };
+
+  const positionCloseButton = (bounds) => {
+    if (!bounds) return;
+
+    const inset = window.innerWidth <= 640 ? 10 : 16;
+    const size = window.innerWidth <= 640 ? 44 : 48;
+
+    closeButton.style.top = `${bounds.top + inset}px`;
+    closeButton.style.left = `${bounds.left + bounds.width - size - inset}px`;
+    closeButton.style.right = "auto";
+  };
+
+  const getBoundsDelta = (fromBounds, toBounds) => ({
+    x: fromBounds.left - toBounds.left,
+    y: fromBounds.top - toBounds.top,
+    scaleX: fromBounds.width / toBounds.width,
+    scaleY: fromBounds.height / toBounds.height
+  });
 
   const closeOverlay = () => {
     if (!state.activeCard || !state.activeClone) return;
@@ -593,18 +677,19 @@ const initExpandableCards = () => {
     const sourceCard = state.activeCard;
     const clone = state.activeClone;
     const finalBounds = sourceCard.getBoundingClientRect();
-    const currentBounds = clone.getBoundingClientRect();
-    const copy = clone.querySelector(".card-overlay__copy");
+    const targetBounds = state.activeBounds || getTargetBounds();
+    const finalDelta = getBoundsDelta(finalBounds, targetBounds);
 
     state.activeTimeline?.kill();
 
-    if (copy) {
+    if (clone.classList.contains("card-overlay__card--detail")) {
       clone.className = `${sourceCard.className} card-overlay__card card-overlay__card--preview`;
       clone.innerHTML = sourceCard.innerHTML;
-      clone.style.left = `${currentBounds.left}px`;
-      clone.style.top = `${currentBounds.top}px`;
-      clone.style.width = `${currentBounds.width}px`;
-      clone.style.height = `${currentBounds.height}px`;
+      syncCardSurface(sourceCard, clone);
+      clone.style.left = `${targetBounds.left}px`;
+      clone.style.top = `${targetBounds.top}px`;
+      clone.style.width = `${targetBounds.width}px`;
+      clone.style.height = `${targetBounds.height}px`;
       clone.style.borderRadius = `${window.innerWidth <= 640 ? 26 : 32}px`;
     }
 
@@ -618,9 +703,13 @@ const initExpandableCards = () => {
         overlay.setAttribute("aria-hidden", "true");
         releaseScrollLock();
         panel.style.pointerEvents = "none";
+        closeButton.style.top = "";
+        closeButton.style.left = "";
+        closeButton.style.right = "";
         state.activeCard = null;
         state.activeClone = null;
         state.activeTimeline = null;
+        state.activeBounds = null;
       }
     });
 
@@ -629,10 +718,10 @@ const initExpandableCards = () => {
     tl.to(closeButton, { opacity: 0, scale: 0.92, duration: 0.18 }, 0)
       .to(backdrop, { opacity: 0, duration: 0.34 }, 0)
       .to(clone, {
-        left: finalBounds.left,
-        top: finalBounds.top,
-        width: finalBounds.width,
-        height: finalBounds.height,
+        x: finalDelta.x,
+        y: finalDelta.y,
+        scaleX: finalDelta.scaleX,
+        scaleY: finalDelta.scaleY,
         borderRadius: gsap.getProperty(sourceCard, "borderRadius"),
         duration: 0.58
       }, 0);
@@ -641,15 +730,17 @@ const initExpandableCards = () => {
   const openOverlay = (card) => {
     if (state.activeCard || state.activeTimeline) return;
 
-    const initialBounds = card.getBoundingClientRect();
+    const initialBounds = getOpeningBounds(card);
     const targetBounds = getTargetBounds();
+    const openingDelta = getBoundsDelta(initialBounds, targetBounds);
     const clone = createPreviewClone(card);
 
-    clone.style.left = `${initialBounds.left}px`;
-    clone.style.top = `${initialBounds.top}px`;
-    clone.style.width = `${initialBounds.width}px`;
-    clone.style.height = `${initialBounds.height}px`;
+    clone.style.left = `${targetBounds.left}px`;
+    clone.style.top = `${targetBounds.top}px`;
+    clone.style.width = `${targetBounds.width}px`;
+    clone.style.height = `${targetBounds.height}px`;
     clone.style.borderRadius = getComputedStyle(card).borderRadius;
+    syncCardSurface(card, clone);
 
     content.replaceChildren(clone);
     overlay.classList.add("is-open");
@@ -657,20 +748,28 @@ const initExpandableCards = () => {
     panel.style.pointerEvents = "auto";
     applyScrollLock();
     card.classList.add("is-source-hidden");
+    positionCloseButton(targetBounds);
 
     gsap.set(backdrop, { opacity: 0 });
     gsap.set(closeButton, { opacity: 0, scale: 0.92 });
+    gsap.set(clone, {
+      x: openingDelta.x,
+      y: openingDelta.y,
+      scaleX: openingDelta.scaleX,
+      scaleY: openingDelta.scaleY
+    });
 
     state.activeCard = card;
     state.activeClone = clone;
+    state.activeBounds = targetBounds;
 
     const tl = gsap.timeline({
       defaults: { ease: "power3.inOut" },
       onComplete: () => {
-        clone.className = "card-overlay__card";
-        clone.innerHTML = createDetailMarkup(card);
-        const copy = clone.querySelector(".card-overlay__copy");
-        gsap.set(copy, { opacity: 0, y: 24 });
+        syncCardSurface(card, clone);
+        const { body, hint } = applyDetailState(clone, card);
+        const detailNodes = [body, hint].filter(Boolean);
+        gsap.set(detailNodes, { opacity: 0, y: 14 });
         closeButton.focus({ preventScroll: true });
         gsap.timeline({
           defaults: { ease: "power2.out" },
@@ -679,7 +778,7 @@ const initExpandableCards = () => {
           }
         })
           .to(closeButton, { opacity: 1, scale: 1, duration: 0.24 }, 0)
-          .to(copy, { opacity: 1, y: 0, duration: 0.34 }, 0.04);
+          .to(detailNodes, { opacity: 1, y: 0, duration: 0.28, stagger: 0.03 }, 0.02);
       }
     });
 
@@ -687,10 +786,10 @@ const initExpandableCards = () => {
 
     tl.to(backdrop, { opacity: 1, duration: 0.38 }, 0)
       .to(clone, {
-        left: targetBounds.left,
-        top: targetBounds.top,
-        width: targetBounds.width,
-        height: targetBounds.height,
+        x: 0,
+        y: 0,
+        scaleX: 1,
+        scaleY: 1,
         borderRadius: window.innerWidth <= 640 ? 26 : 32,
         duration: 0.7
       }, 0);
@@ -720,11 +819,17 @@ const initExpandableCards = () => {
   window.addEventListener("resize", () => {
     if (!state.activeClone) return;
     const bounds = getTargetBounds();
+    state.activeBounds = bounds;
+    positionCloseButton(bounds);
     gsap.set(state.activeClone, {
       left: bounds.left,
       top: bounds.top,
       width: bounds.width,
-      height: bounds.height
+      height: bounds.height,
+      x: 0,
+      y: 0,
+      scaleX: 1,
+      scaleY: 1
     });
   });
 };
@@ -804,6 +909,7 @@ const initShowcaseSlider = () => {
   };
 
   const render = (nextIndex) => {
+    if (nextIndex === activeIndex) return;
     applyState(nextIndex);
   };
 
